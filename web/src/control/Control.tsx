@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Config, ShowFields, LocationProfile } from "@shared/index.js";
+import type { Airport, Config, ShowFields, LocationProfile } from "@shared/index.js";
 import { formatLatLon } from "@shared/geo.js";
 import { useStream } from "../lib/useStream.js";
 import { nextISSPass, type Tle } from "../display/celestial.js";
@@ -35,6 +35,10 @@ export function Control() {
   // Location editor (Nominatim via the server's /api/geocode).
   const [geoBusy, setGeoBusy] = useState(false);
   const [geoErr, setGeoErr] = useState<string | null>(null);
+
+  // Airport runway import (OurAirports via the server's /api/airport).
+  const [apBusy, setApBusy] = useState(false);
+  const [apErr, setApErr] = useState<string | null>(null);
 
   // ISS pass finder (for the Sky section).
   const [tles, setTles] = useState<Tle[]>([]);
@@ -114,6 +118,32 @@ export function Control() {
     const lon = ac.reduce((s, a) => s + (a.lon as number), 0) / ac.length;
     set({ centerLat: lat, centerLon: lon, locationName: "Traffic center" });
   };
+
+  // Import runway geometry for any airport and draw it on the ceiling.
+  const importAirport = async (code: string) => {
+    if (!code.trim()) return;
+    setApBusy(true);
+    setApErr(null);
+    try {
+      const r = await fetch(`/api/airport?code=${encodeURIComponent(code.trim())}`);
+      const body = (await r.json()) as Airport & { error?: string };
+      if (!r.ok) {
+        setApErr(body.error ?? "Lookup failed");
+        return;
+      }
+      set({ airport: body, showAirport: true });
+    } catch {
+      setApErr("Lookup failed");
+    } finally {
+      setApBusy(false);
+    }
+  };
+  const centerOnAirport = () =>
+    set({
+      centerLat: cfg.airport.lat,
+      centerLon: cfg.airport.lon,
+      locationName: cfg.airport.fullName ?? cfg.airport.icao,
+    });
 
   const useCurrentLocation = () => {
     if (!navigator.geolocation) {
@@ -205,6 +235,31 @@ export function Control() {
               </button>
             )}
           </div>
+          <Row
+            label="Runways"
+            hint={`${cfg.airport.icao}${cfg.airport.fullName ? ` · ${cfg.airport.fullName}` : ""}`}
+          >
+            <div className="loc-bar">
+              <TextInput
+                key={cfg.airport.icao}
+                value=""
+                placeholder="airport code (KSFO, EDDF, SNA…)"
+                ariaLabel="Import airport runways"
+                onCommit={importAirport}
+              />
+              <button
+                type="button"
+                className="loc-btn"
+                aria-label="Center view on the airport"
+                disabled={apBusy}
+                onClick={centerOnAirport}
+              >
+                Center
+              </button>
+            </div>
+          </Row>
+          {apBusy && <Row label="" hint="importing runways…"><span /></Row>}
+          {apErr && <Row label="" hint={apErr}><span /></Row>}
         </Section>
 
         <Section title="Source">

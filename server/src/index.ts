@@ -16,6 +16,7 @@ import { TleStore } from "./tle.js";
 import { resolveLocation } from "./geocode.js";
 import { buildHostMatcher, originHostname } from "./allowed-hosts.js";
 import { SfoGroundPoller } from "./sfo-ground.js";
+import { lookupAirport } from "./airports.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = resolve(__dirname, "../data");
@@ -162,6 +163,19 @@ async function main(): Promise<void> {
       res.json(hit);
     } catch {
       res.status(502).json({ error: "geocoding service unavailable" });
+    }
+  });
+
+  // Resolve an ICAO/IATA airport code to runway geometry (OurAirports data)
+  // for the ceiling's runway overlay. The control panel patches the result
+  // into config.airport.
+  app.get("/api/airport", async (req, res) => {
+    const code = String(req.query.code ?? "").trim();
+    if (!code) return res.status(400).json({ error: "missing query parameter code" });
+    try {
+      res.json(await lookupAirport(code, DATA_DIR));
+    } catch (err) {
+      res.status(404).json({ error: err instanceof Error ? err.message : "lookup failed" });
     }
   });
 

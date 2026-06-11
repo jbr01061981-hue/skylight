@@ -38,7 +38,6 @@ import {
   type Point,
   type SkyAngles,
 } from "@shared/index.js";
-import { AIRPORTS } from "./airports.js";
 import { classifyGlyph, drawAircraftGlyph, GLYPH_SCALE } from "./aircraftGlyph.js";
 import { computeSky, type Sky, type Tle } from "./celestial.js";
 import { ASTERISMS } from "./stars.js";
@@ -530,7 +529,8 @@ export class Renderer {
   private drawAirport(cfg: Config, proj: ProjOpts): void {
     const ctx = this.ctx;
     const rwyRgb: [number, number, number] = [150, 180, 220];
-    for (const ap of AIRPORTS) {
+    {
+      const ap = cfg.airport;
       let cx = 0;
       let cy = 0;
       let n = 0;

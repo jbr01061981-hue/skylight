@@ -6,7 +6,7 @@
 
 import { useMemo } from "react";
 import type { GroundAircraft } from "@shared/index.js";
-import { SFO } from "../display/airports.js";
+import { SFO_AIRPORT as SFO } from "@shared/index.js";
 
 const DEG = Math.PI / 180;
 /** Diagram center: SFO ARP. */

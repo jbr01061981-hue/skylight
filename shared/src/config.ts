@@ -12,6 +12,7 @@ import type {
   ViscaUnitScale,
 } from "./camera.js";
 import type { FovPoint } from "./aim.js";
+import { SFO_AIRPORT, type Airport } from "./airport.js";
 
 export type Theme = "ambient" | "telemetry" | "focus";
 export type LabelDensity = "all" | "nearestN" | "nearestOnly";
@@ -287,6 +288,9 @@ export interface Config {
   highlightEmergency: boolean;
   /** Draw the airport (runways) at its true geographic position. */
   showAirport: boolean;
+  /** Which airport to draw — importable by ICAO/IATA code from the control
+   *  panel (worldwide, via OurAirports). */
+  airport: Airport;
   /** Show the on-screen calibration HUD on the display. */
   showHud: boolean;
 
@@ -381,6 +385,7 @@ export const DEFAULT_CONFIG: Config = {
   compass: true,
   highlightEmergency: true,
   showAirport: true,
+  airport: SFO_AIRPORT,
   showHud: false,
 
   showStars: true,
