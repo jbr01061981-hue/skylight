@@ -20,10 +20,13 @@ import {
   llToMeters,
   project,
   pxPerMeter,
+  convertDistance,
   deadReckon,
   rangeMeters,
   metersToMiles,
   formatSpeed,
+  formatAltitude,
+  formatDistance,
   horizonRadiusM,
   groundToSkyAngles,
   projectAircraft,
@@ -122,7 +125,7 @@ export function labelLines(cfg: Config, ac: Aircraft): { text: string; kind: "ti
   const alt = ac.altBaro ?? ac.altGeom;
   if (f.altitude) {
     if (ac.onGround) sub.push("GND");
-    else if (alt != null) sub.push(`${alt.toLocaleString("en-US")} ft`);
+    else if (alt != null) sub.push(formatAltitude(alt, cfg.altitudeUnit));
   }
   if (f.speed && ac.gs != null) sub.push(formatSpeed(ac.gs, cfg.speedUnit));
   if (sub.length) out.push({ text: sub.join("   "), kind: "sub" });
@@ -136,7 +139,7 @@ export function labelLines(cfg: Config, ac: Aircraft): { text: string; kind: "ti
       const bits: string[] = [`${localTimeAt(ac.destLat, ac.destLon)} local`];
       if (ac.lat != null && ac.lon != null) {
         const mi = Math.round(greatCircleMiles(ac.lat, ac.lon, ac.destLat, ac.destLon));
-        if (mi > 1) bits.push(`${mi.toLocaleString("en-US")} mi to go`);
+        if (mi > 1) bits.push(`${formatDistance(mi, cfg.distanceUnit)} to go`);
       }
       out.push({ text: bits.join("   ·   "), kind: "sub" });
     }
@@ -521,8 +524,8 @@ export class Renderer {
           ctx.fillText(`${elev}°`, cx + r + 4, cy);
         }
       } else {
-        for (let mi = 1; mi <= Math.floor(cfg.radiusMiles); mi++) {
-          const r = mi * 1609.34 * proj.pxPerM;
+        for (let step = 1; step <= Math.floor(convertDistance(cfg.radiusMiles, cfg.distanceUnit)); step++) {
+          const r = step * (cfg.distanceUnit === "mi" ? MI_TO_M : KM_TO_M) * proj.pxPerM;
           ctx.beginPath();
           ctx.arc(cx, cy, r, 0, Math.PI * 2);
           ctx.strokeStyle = rgba(hexToRgb(cfg.palette.grid), 0.5 * cfg.brightness);
@@ -861,7 +864,7 @@ export class Renderer {
         pts.push(this.projectSky(az, elev, cfg, proj));
       }
     } else {
-      const brg = destAz * (Math.PI / 180);
+      const brg = destAz * DEG;
       const stepM = this.horizonM(cfg) * 0.5;
       const ahead = project(
         {
@@ -1141,7 +1144,7 @@ export class Renderer {
     const bits = [
       ac.airline,
       ac.typeName ?? ac.typeCode,
-      ac.onGround ? "on ground" : dpAlt != null ? `${dpAlt.toLocaleString("en-US")} ft` : null,
+      ac.onGround ? "on ground" : dpAlt != null ? formatAltitude(dpAlt, cfg.altitudeUnit) : null,
       ac.gs != null ? formatSpeed(ac.gs, cfg.speedUnit) : null,
       ac.origin && ac.destination && routePlausible(ac, cfg) ? `${ac.origin} → ${ac.destination}` : null,
     ].filter(Boolean);
