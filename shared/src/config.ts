@@ -22,6 +22,10 @@ export type NameDisplay = "airline" | "flight";
 export type LocationDisplay = "name" | "iata";
 /** Ground-speed display unit. ADS-B reports knots; the rest are converted. */
 export type SpeedUnit = "kt" | "mph" | "kmh";
+/** Altitude display unit. */
+export type AltitudeUnit = "ft" | "m";
+/** Distance display unit. */
+export type DistanceUnit = "mi" | "km";
 /** map = flat ground plan; sky = look-up dome with altitude-aware motion. */
 export type ProjectionMode = "map" | "sky";
 
@@ -285,6 +289,10 @@ export interface Config {
   locationDisplay: LocationDisplay;
   /** Unit for the speed shown on labels (ADS-B is knots). */
   speedUnit: SpeedUnit;
+  /** Unit for the altitude shown on labels. */
+  altitudeUnit: AltitudeUnit;
+  /** Unit for the distance shown on labels. */
+  distanceUnit: DistanceUnit;
 
   // --- overlays ---
   rangeRings: boolean;
@@ -387,6 +395,8 @@ export const DEFAULT_CONFIG: Config = {
   nameDisplay: "flight",
   locationDisplay: "name",
   speedUnit: "kt",
+  altitudeUnit: "ft",
+  distanceUnit: "mi",
 
   rangeRings: true,
   compass: true,
