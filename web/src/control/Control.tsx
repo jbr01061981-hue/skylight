@@ -98,7 +98,15 @@ export function Control() {
   const atCurrent = (p: { lat: number; lon: number }) =>
     Math.abs(p.lat - cfg.centerLat) < 1e-4 && Math.abs(p.lon - cfg.centerLon) < 1e-4;
   const switchToProfile = (p: LocationProfile) =>
-    set({ centerLat: p.lat, centerLon: p.lon, radiusMiles: p.radiusMiles, locationName: p.name });
+    set({
+      centerLat: p.lat,
+      centerLon: p.lon,
+      radiusMiles: p.radiusMiles,
+      locationName: p.name,
+      // Restore the runway overlay saved with the profile (#62). Older
+      // profiles without one keep whatever airport is currently loaded.
+      ...(p.airport ? { airport: p.airport, showAirport: p.showAirport ?? true } : {}),
+    });
   const saveCurrentProfile = () => {
     const name = cfg.locationName?.trim() || formatLatLon(cfg.centerLat, cfg.centerLon);
     const profile: LocationProfile = {
@@ -107,6 +115,8 @@ export function Control() {
       lat: cfg.centerLat,
       lon: cfg.centerLon,
       radiusMiles: cfg.radiusMiles,
+      airport: cfg.airport,
+      showAirport: cfg.showAirport,
     };
     // Replace any existing profile already saved at this spot.
     const rest = cfg.locationProfiles.filter((p) => !atCurrent(p));

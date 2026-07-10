@@ -53,6 +53,11 @@ export interface LocationProfile {
   lat: number;
   lon: number;
   radiusMiles: number;
+  /** Runway overlay captured when the profile was saved, so switching
+   *  profiles restores that airport's runways without re-importing (#62). */
+  airport?: Airport;
+  /** Whether the runway overlay was visible when the profile was saved. */
+  showAirport?: boolean;
 }
 
 export interface ShowFields {
