@@ -136,7 +136,7 @@ async function main(): Promise<void> {
     pollMs: POLL_MS,
     supplementApi: SUPPLEMENT_API,
     apiPollMs: API_POLL_MS,
-    localJsonPath: resolve(DATA_DIR, "historical-flights.json"),
+    localJsonPath: resolve(DATA_DIR, "../demo-data/historical-flights.json"),
     getConfig: () => store.get(),
     enricher,
     onSnapshot: (now, aircraft) => hub.broadcastAircraft(now, aircraft),

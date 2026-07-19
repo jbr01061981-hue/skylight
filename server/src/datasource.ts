@@ -3,7 +3,6 @@
 // airplanes.live both use the readsb JSON schema, so one normalizer covers both.
 
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import type { Aircraft, Config, DataSource } from "@shared/index.js";
 import type { SourceStatus } from "@shared/index.js";
 import { NM_PER_MILE, llToMeters, metersToMiles, rangeMeters } from "@shared/index.js";
@@ -283,8 +282,8 @@ export class Poller {
     // Local JSON playback mode
     if (this.o.source === "local") {
       if (!this.localPlaying) {
-        const path = this.o.getConfig().localJsonPath;
-        await this.loadLocalJson(path);
+        const path = this.o.localJsonPath;
+        if (path) await this.loadLocalJson(path);
       }
       const list = this.getLocalFrame(now);
       for (const ac of list) this.enrich(ac, now);
@@ -344,7 +343,7 @@ export class Poller {
 
   /** Try to load and use local JSON as fallback when the live API fails. */
   private async tryLocalFallback(now: number): Promise<boolean> {
-    const path = this.o.getConfig().localJsonPath;
+    const path = this.o.localJsonPath;
     if (!path) return false;
     const loaded = await this.loadLocalJson(path);
     if (!loaded) return false;
@@ -443,8 +442,7 @@ export class Poller {
    */
   private async loadLocalJson(path: string): Promise<boolean> {
     try {
-      const absPath = resolve(process.cwd(), path);
-      const raw = await readFile(absPath, "utf8");
+      const raw = await readFile(path, "utf8");
       const data = JSON.parse(raw) as {
         snapshots?: { offsetMs: number; aircraft: RawAircraft[] }[];
         aircraft?: RawAircraft[];

@@ -351,7 +351,7 @@ export const DEFAULT_CONFIG: Config = {
   locationProfiles: [],
 
   radioUrl: "http://localhost:8080/data/aircraft.json",
-  localJsonPath: "data/historical-flights.json",
+  localJsonPath: "demo-data/historical-flights.json",
 
   rotationDeg: 0,
   mirrorX: true,
