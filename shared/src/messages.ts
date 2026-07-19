@@ -14,6 +14,8 @@ export interface SourceStatus {
   lastOk: number | null;
   /** Human-readable note (e.g. last error). */
   message?: string;
+  /** Whether we're playing back local/recorded data. */
+  playback?: boolean;
 }
 
 /** An aircraft on the airport surface (from the airplanes.live area API). */

@@ -27,8 +27,30 @@ const HOST = process.env.HOST ?? "0.0.0.0";
 const SOURCE = (process.env.DATA_SOURCE as DataSource) ?? "radio";
 const RADIO_URL =
   process.env.AIRCRAFT_JSON_URL ?? "http://localhost:8080/data/aircraft.json";
-const API_URL =
-  process.env.API_URL ?? "https://api.airplanes.live/v2/point/{lat}/{lon}/{r}";
+/** Online feeds with the readsb/dump1090 response shape used by the poller. */
+const API_PROVIDERS = {
+  "adsb-lol": "https://api.adsb.lol/v2/point/{lat}/{lon}/{r}",
+  "airplanes-live": "https://api.airplanes.live/v2/point/{lat}/{lon}/{r}",
+} as const;
+type ApiProvider = keyof typeof API_PROVIDERS;
+
+function apiUrlFromEnvironment(): string {
+  if (process.env.API_URL) return process.env.API_URL;
+  const provider = (process.env.API_PROVIDER ?? "adsb-lol") as ApiProvider;
+  const url = API_PROVIDERS[provider];
+  if (!url) {
+    throw new Error(
+      `Unknown API_PROVIDER "${provider}". Use ${Object.keys(API_PROVIDERS).join(", ")}, or set API_URL to a compatible point endpoint.`,
+    );
+  }
+  return url;
+}
+
+const API_PROVIDER = process.env.API_URL ? "custom" : process.env.API_PROVIDER ?? "adsb-lol";
+const API_URL = apiUrlFromEnvironment();
+// The surface-traffic panel is optional. Keeping it off in browser/API mode
+// avoids a second public-feed request alongside the main flight snapshot.
+const SFO_GROUND_ENABLED = process.env.SFO_GROUND_ENABLED === "1";
 const POLL_MS = Number(process.env.POLL_MS ?? 1000);
 const ROUTE_CACHE_HOURS = Number(process.env.ROUTE_CACHE_HOURS ?? 12);
 // When on radio, also poll the API and merge (keeps landing aircraft alive).
@@ -98,7 +120,7 @@ async function main(): Promise<void> {
     store,
     getSnapshot: () => poller.getSnapshot(),
     getStatus: () => poller.getStatus(),
-    getSfoGround: () => sfoGround.getSnapshot(),
+    getSfoGround: () => sfoGround?.getSnapshot() ?? null,
     isOriginAllowed: (origin) => {
       // No Origin header: not a browser (curl/scripts). Allow — the WS
       // hijack risk is browser-only.
@@ -114,6 +136,7 @@ async function main(): Promise<void> {
     pollMs: POLL_MS,
     supplementApi: SUPPLEMENT_API,
     apiPollMs: API_POLL_MS,
+    localJsonPath: resolve(DATA_DIR, "historical-flights.json"),
     getConfig: () => store.get(),
     enricher,
     onSnapshot: (now, aircraft) => hub.broadcastAircraft(now, aircraft),
@@ -122,9 +145,12 @@ async function main(): Promise<void> {
 
   // SFO surface traffic (airplanes.live) — the "who's next" panel on the TV
   // and Twitch stream. Local receiver can't hear ground targets at 13 mi.
-  const sfoGround = new SfoGroundPoller((at, aircraft) =>
-    hub.broadcastSfoGround(at, aircraft),
-  );
+  const sfoGround = SFO_GROUND_ENABLED
+    ? new SfoGroundPoller(
+        (at, aircraft) => hub.broadcastSfoGround(at, aircraft),
+        API_URL,
+      )
+    : undefined;
 
   // --- REST API (handy for debugging + non-WS clients) ---
   app.get("/api/health", (_req, res) => res.json({ ok: true }));
@@ -145,8 +171,8 @@ async function main(): Promise<void> {
   app.get("/api/tle", async (_req, res) => res.json(await tleStore.get()));
   app.post("/api/source", (req, res) => {
     const s = req.body?.source;
-    if (s !== "radio" && s !== "api") {
-      return res.status(400).json({ error: "source must be 'radio' or 'api'" });
+    if (s !== "radio" && s !== "api" && s !== "local") {
+      return res.status(400).json({ error: "source must be 'radio', 'api', or 'local'" });
     }
     poller.setSource(s);
     res.json(poller.getStatus());
@@ -193,11 +219,12 @@ async function main(): Promise<void> {
   }
 
   poller.start();
-  sfoGround.start();
+  sfoGround?.start();
 
   server.listen(PORT, HOST, () => {
     console.log(`[server] listening on http://${HOST}:${PORT}`);
     console.log(`[server] data source: ${SOURCE} (${SOURCE === "radio" ? RADIO_URL : API_URL})`);
+    if (SOURCE === "api") console.log(`[server] API provider: ${API_PROVIDER}`);
     console.log(`[server] control panel: http://<this-host>:${PORT}/control`);
     console.log(`[server] host allowlist: ${hostMatcher.describe()}`);
   });

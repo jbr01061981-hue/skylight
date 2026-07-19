@@ -277,7 +277,10 @@ geometry - turn off **Airport runways** if you've moved, or replace it in
 
 | Env | Default | Meaning |
 |---|---|---|
-| `DATA_SOURCE` | `radio` | `radio` (dump1090) or `api` (airplanes.live) |
+| `DATA_SOURCE` | `radio` | `radio` (dump1090) or `api` (online feed) |
+| `API_PROVIDER` | `adsb-lol` | Built-in online feed: `adsb-lol` or `airplanes-live` |
+| `API_URL` | *(provider default)* | A custom readsb-compatible point URL with `{lat}`, `{lon}`, and `{r}` placeholders; overrides `API_PROVIDER` |
+| `SFO_GROUND_ENABLED` | `0` | Set `1` to enable the optional SFO surface-traffic panel (uses another API request) |
 | `AIRCRAFT_JSON_URL` | `http://localhost:8080/aircraft.json` | dump1090 feed |
 | `SUPPLEMENT_API` | `1` | When on radio, merge the API too (keeps landing aircraft alive) |
 | `PORT` / `HOST` | `3000` / `0.0.0.0` | HTTP + WebSocket |

@@ -13,8 +13,6 @@ const SFO_LAT = 37.6213;
 const SFO_LON = -122.379;
 const RADIUS_NM = 3;
 const POLL_MS = 6000;
-const URL = `https://api.airplanes.live/v2/point/${SFO_LAT}/${SFO_LON}/${RADIUS_NM}`;
-
 /** Raw airplanes.live aircraft record (the fields we read). */
 interface AlAircraft {
   hex?: string;
@@ -33,8 +31,17 @@ export class SfoGroundPoller {
   private timer: ReturnType<typeof setInterval> | null = null;
   private last: { at: number; aircraft: GroundAircraft[] } | null = null;
   private lastErrorLogAt = 0;
+  private readonly url: string;
 
-  constructor(private onUpdate: (at: number, aircraft: GroundAircraft[]) => void) {}
+  constructor(
+    private onUpdate: (at: number, aircraft: GroundAircraft[]) => void,
+    apiUrlTemplate: string,
+  ) {
+    this.url = apiUrlTemplate
+      .replace("{lat}", String(SFO_LAT))
+      .replace("{lon}", String(SFO_LON))
+      .replace("{r}", String(RADIUS_NM));
+  }
 
   /** Latest snapshot for late-joining clients (null until first success). */
   getSnapshot(): { at: number; aircraft: GroundAircraft[] } | null {
@@ -54,7 +61,7 @@ export class SfoGroundPoller {
 
   private async poll(): Promise<void> {
     try {
-      const res = await fetch(URL, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(this.url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as { ac?: AlAircraft[] };
       const aircraft: GroundAircraft[] = [];

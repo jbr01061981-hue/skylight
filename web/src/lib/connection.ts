@@ -111,6 +111,13 @@ export class Connection {
   resetConfig(): void {
     this.send({ type: "resetConfig" });
   }
+  changeSource(source: "radio" | "api" | "local"): void {
+    fetch("/api/source", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ source }),
+    }).catch(() => {});
+  }
 
   subscribe(fn: Listener): () => void {
     this.listeners.add(fn);

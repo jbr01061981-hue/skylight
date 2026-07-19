@@ -17,7 +17,7 @@ import { CONSTELLATIONS } from "./stars.js";
 
 export type Theme = "ambient" | "telemetry" | "focus";
 export type LabelDensity = "all" | "nearestN" | "nearestOnly";
-export type DataSource = "radio" | "api";
+export type DataSource = "radio" | "api" | "local";
 export type NameDisplay = "airline" | "flight";
 export type LocationDisplay = "name" | "iata";
 /** Ground-speed display unit. ADS-B reports knots; the rest are converted. */
@@ -245,6 +245,8 @@ export interface Config {
   // --- data source ---
   /** dump1090/readsb aircraft.json URL for the radio source. */
   radioUrl: string;
+  /** Path to a local JSON file with historical flight data (fallback when API fails). */
+  localJsonPath: string;
 
   // --- calibration (tune against a real overhead pass) ---
   /** Rotate the whole field, degrees. */
@@ -349,6 +351,7 @@ export const DEFAULT_CONFIG: Config = {
   locationProfiles: [],
 
   radioUrl: "http://localhost:8080/data/aircraft.json",
+  localJsonPath: "data/historical-flights.json",
 
   rotationDeg: 0,
   mirrorX: true,

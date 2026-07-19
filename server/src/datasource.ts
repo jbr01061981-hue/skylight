@@ -2,6 +2,8 @@
 // into our Aircraft shape, enrich them, and emit snapshots. dump1090-fa and
 // airplanes.live both use the readsb JSON schema, so one normalizer covers both.
 
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import type { Aircraft, Config, DataSource } from "@shared/index.js";
 import type { SourceStatus } from "@shared/index.js";
 import { NM_PER_MILE, llToMeters, metersToMiles, rangeMeters } from "@shared/index.js";
@@ -99,6 +101,8 @@ export interface PollerOptions {
   supplementApi: boolean;
   /** API poll cadence when supplementing (slower, to respect rate limits). */
   apiPollMs: number;
+  /** Path to local JSON file for historical playback. */
+  localJsonPath?: string;
   getConfig: () => Config;
   enricher: RouteEnricher;
   onSnapshot: (now: number, aircraft: Aircraft[]) => void;
@@ -275,6 +279,30 @@ export class Poller {
 
   private async tick(): Promise<void> {
     const now = Date.now();
+
+    // Local JSON playback mode
+    if (this.o.source === "local") {
+      if (!this.localPlaying) {
+        const path = this.o.getConfig().localJsonPath;
+        await this.loadLocalJson(path);
+      }
+      const list = this.getLocalFrame(now);
+      for (const ac of list) this.enrich(ac, now);
+      this.last = list;
+      this.pruneSticky(now);
+      this.status = {
+        source: "local",
+        ok: true,
+        count: list.length,
+        lastOk: now,
+        playback: true,
+        message: `📼 playback · ${list.length} aircraft · frame ${this.localFrame}/${this.localSnapshots?.length ?? 0}`,
+      };
+      this.o.onSnapshot(now, list);
+      this.o.onStatus(this.status);
+      return;
+    }
+
     if (this.o.source === "api" && now < this.apiBackoffUntil) {
       const waitS = Math.ceil((this.apiBackoffUntil - now) / 1000);
       this.status = {
@@ -287,6 +315,9 @@ export class Poller {
     }
     const primary = await this.fetchList(this.o.source, now);
     if (primary === null) {
+      // API failed — try local JSON fallback
+      const fallback = await this.tryLocalFallback(now);
+      if (fallback) return;
       this.status = {
         ...this.status,
         ok: false,
@@ -309,6 +340,29 @@ export class Poller {
     };
     this.o.onSnapshot(now, merged);
     this.o.onStatus(this.status);
+  }
+
+  /** Try to load and use local JSON as fallback when the live API fails. */
+  private async tryLocalFallback(now: number): Promise<boolean> {
+    const path = this.o.getConfig().localJsonPath;
+    if (!path) return false;
+    const loaded = await this.loadLocalJson(path);
+    if (!loaded) return false;
+    const list = this.getLocalFrame(now);
+    for (const ac of list) this.enrich(ac, now);
+    this.last = list;
+    this.pruneSticky(now);
+    this.status = {
+      source: "local",
+      ok: true,
+      count: list.length,
+      lastOk: now,
+      playback: true,
+      message: `📼 fallback playback · ${list.length} aircraft`,
+    };
+    this.o.onSnapshot(now, list);
+    this.o.onStatus(this.status);
+    return true;
   }
 
   private enrich(ac: Aircraft, now: number): void {
@@ -369,5 +423,96 @@ export class Poller {
     for (const [hex, s] of this.sticky) {
       if (now - s.lastSeen > 600_000) this.sticky.delete(hex);
     }
+  }
+
+  // --- Local JSON fallback (historical playback) ---
+
+  /** Loaded historical snapshots, each with a timestamp offset. */
+  private localSnapshots: { offsetMs: number; aircraft: Aircraft[] }[] | null = null;
+  /** Index into localSnapshots for the current playback frame. */
+  private localFrame = 0;
+  /** When playback started (wall clock), used to compute which frame to show. */
+  private localStartWall = 0;
+  /** Whether we're currently in playback mode. */
+  private localPlaying = false;
+
+  /**
+   * Load a local JSON file containing historical flight data.
+   * Expected format: { snapshots: [{ offsetMs: number, aircraft: RawAircraft[] }] }
+   * or an array of { aircraft: RawAircraft[] } with timestamps.
+   */
+  private async loadLocalJson(path: string): Promise<boolean> {
+    try {
+      const absPath = resolve(process.cwd(), path);
+      const raw = await readFile(absPath, "utf8");
+      const data = JSON.parse(raw) as {
+        snapshots?: { offsetMs: number; aircraft: RawAircraft[] }[];
+        aircraft?: RawAircraft[];
+      };
+
+      if (data.snapshots && data.snapshots.length > 0) {
+        this.localSnapshots = data.snapshots.map((s) => ({
+          offsetMs: s.offsetMs,
+          aircraft: s.aircraft
+            .map((a) => normalize(a, Date.now()))
+            .filter((a): a is Aircraft => a !== null),
+        }));
+      } else if (data.aircraft && data.aircraft.length > 0) {
+        // Single snapshot — create a static frame
+        this.localSnapshots = [
+          {
+            offsetMs: 0,
+            aircraft: data.aircraft
+              .map((a) => normalize(a, Date.now()))
+              .filter((a): a is Aircraft => a !== null),
+          },
+        ];
+      } else {
+        console.error("[poller] local JSON: no valid snapshots or aircraft array found");
+        return false;
+      }
+
+      this.localFrame = 0;
+      this.localStartWall = Date.now();
+      this.localPlaying = true;
+      console.log(`[poller] loaded ${this.localSnapshots.length} local frames (${this.localSnapshots.reduce((s, f) => s + f.aircraft.length, 0)} aircraft)`);
+      return true;
+    } catch (err) {
+      console.error(`[poller] failed to load local JSON "${path}":`, err);
+      return false;
+    }
+  }
+
+  /** Get the current playback frame from the local data, cycling forever. */
+  private getLocalFrame(now: number): Aircraft[] {
+    if (!this.localSnapshots || this.localSnapshots.length === 0) return [];
+
+    const elapsed = now - this.localStartWall;
+    const totalDuration = this.localSnapshots[this.localSnapshots.length - 1].offsetMs;
+
+    if (totalDuration <= 0) {
+      // Static single frame — return it as-is
+      return this.localSnapshots[0].aircraft;
+    }
+
+    // Loop: find the frame at the current elapsed time, wrapping around
+    const loopedElapsed = elapsed % (totalDuration + 2000); // 2s pause at end
+    let idx = 0;
+    for (let i = 0; i < this.localSnapshots.length; i++) {
+      if (this.localSnapshots[i].offsetMs <= loopedElapsed) {
+        idx = i;
+      }
+    }
+
+    const frame = this.localSnapshots[idx];
+    if (!frame) return [];
+
+    // Update seen timestamps so the client doesn't stale them out
+    const nowSec = now / 1000;
+    return frame.aircraft.map((ac) => ({
+      ...ac,
+      seen: 0,
+      ts: now,
+    }));
   }
 }

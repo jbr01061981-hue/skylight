@@ -86,3 +86,26 @@ body,
 .ambient-warn {
   color: #e0a23d;
 }
+
+/* Auto-hiding playback indicator */
+.playback-badge-overlay {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 13px "JetBrains Mono", ui-monospace, monospace;
+  color: #c4a0e8;
+  background: rgba(30, 20, 50, 0.85);
+  border: 1px solid #6b3fa0;
+  padding: 8px 16px;
+  border-radius: 8px;
+  pointer-events: none;
+  animation: fadeOut 5s ease-in forwards;
+  z-index: 100;
+}
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}

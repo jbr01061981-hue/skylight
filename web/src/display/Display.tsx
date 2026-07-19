@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Config, Theme } from "@shared/index.js";
 import { DEFAULT_CONFIG, formatDistance } from "@shared/index.js";
 import { useStream } from "../lib/useStream.js";
@@ -89,6 +89,19 @@ export function Display() {
   }, [conn]);
 
   const cfg = state.config;
+  const [showPlaybackBadge, setShowPlaybackBadge] = useState(false);
+
+  // Auto-hide the playback badge after 5 seconds
+  useEffect(() => {
+    if (state.status?.playback) {
+      setShowPlaybackBadge(true);
+      const timer = setTimeout(() => setShowPlaybackBadge(false), 5000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowPlaybackBadge(false);
+    }
+  }, [state.status?.playback, state.status?.count]);
+
   return (
     <div className="display-root">
       <canvas ref={canvasRef} className="display-canvas" />
@@ -99,6 +112,7 @@ export function Display() {
             {state.status?.source ?? "—"} · {state.aircraft.length} ac ·{" "}
             rot {cfg.rotationDeg}° · mirror {cfg.mirrorX ? "X" : "–"}
             {cfg.mirrorY ? "Y" : ""} · r {formatDistance(cfg.radiusMiles, cfg.distanceUnit)} · {cfg.projectionMode} · {cfg.theme}
+            {state.status?.playback && <span className="playback-indicator"> 📼</span>}
           </span>
         </div>
       )}
@@ -118,6 +132,9 @@ export function Display() {
           {ambient.active ? "◱ exit ambient" : "◳ ambient"}
           {ambient.active && !ambient.wakeLocked && <span className="ambient-warn"> · no wake-lock</span>}
         </button>
+      )}
+      {showPlaybackBadge && (
+        <div className="playback-badge-overlay">📼 Historical playback</div>
       )}
     </div>
   );

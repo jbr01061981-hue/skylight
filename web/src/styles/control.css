@@ -413,3 +413,16 @@ main {
   font-weight: 500;
   cursor: pointer;
 }
+
+/* Playback badge */
+.playback-badge {
+  display: inline-block;
+  background: #2d1b3d;
+  color: #c4a0e8;
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1px solid #6b3fa0;
+  font-family: var(--mono);
+  white-space: nowrap;
+}

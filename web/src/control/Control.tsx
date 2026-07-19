@@ -309,12 +309,36 @@ export function Control() {
         </Section>
 
         <Section title="Source">
+          <Row label="Data source" hint={state.status?.playback ? "📼 playback active" : state.status?.ok ? "live" : "offline"}>
+            <Segmented
+              value={state.status?.source ?? "api"}
+              options={[
+                { value: "api", label: "Live API" },
+                { value: "local", label: "📼 Playback" },
+              ]}
+              onChange={(v) => conn.changeSource(v)}
+            />
+          </Row>
+          {state.status?.playback && (
+            <Row label="Status" hint={state.status.message ?? ""}>
+              <span className="playback-badge">📼 Historical data — smooth animation for demo</span>
+            </Row>
+          )}
           <Row label="Radio URL" hint="dump1090 aircraft.json">
             <TextInput
               value={cfg.radioUrl}
               ariaLabel="Radio aircraft JSON URL"
               onCommit={(v) => {
                 if (v !== cfg.radioUrl) set({ radioUrl: v });
+              }}
+            />
+          </Row>
+          <Row label="Local JSON path" hint="fallback historical data">
+            <TextInput
+              value={cfg.localJsonPath}
+              ariaLabel="Local historical flights JSON path"
+              onCommit={(v) => {
+                if (v !== cfg.localJsonPath) set({ localJsonPath: v });
               }}
             />
           </Row>
