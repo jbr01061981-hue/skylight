@@ -4,19 +4,13 @@
 #
 # How to deploy:
 #   1. Push this repo to GitHub.
-#   2. Go to https://dashboard.render.com/select-repo
-#   3. Connect your repo — Render will auto-detect render.yaml.
-#   4. Click "Create New Resources" → "Blueprint" → select your repo.
-#   5. Done. Your app will be live at https://skylight-demo.onrender.com
-#
-# Or manually (if you skip the blueprint):
-#   1. New Web Service → connect your repo.
-#   2. Name: "skylight-demo"
-#   3. Build Command: pnpm install && pnpm build
-#   4. Start Command: pnpm start
+#   2. Go to https://dashboard.render.com/
+#   3. Click "New +" → "Web Service" → connect your repo.
+#   4. Use the settings below (Render will auto-detect them).
 #   5. Select "Free" plan.
+#   6. Done. Your app will be live at https://skylight-demo.onrender.com
 
-blueprint:
+services:
   - type: web
     name: skylight-demo
     env: node
